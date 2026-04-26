@@ -9,6 +9,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+VENDOR_DIR = PROJECT_ROOT / "vendor"
+if VENDOR_DIR.is_dir() and str(VENDOR_DIR) not in sys.path:
+    sys.path.insert(0, str(VENDOR_DIR))
 
 from chat_bot.telegram_sender import send_telegram_message
 

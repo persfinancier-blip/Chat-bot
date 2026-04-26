@@ -47,6 +47,11 @@ fi
 
 if [[ -f requirements.txt ]]; then
   cp requirements.txt "$DEPLOY_DIR/requirements.txt"
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -m pip install --target "$DEPLOY_DIR/vendor" -r requirements.txt
+  elif command -v python >/dev/null 2>&1; then
+    python -m pip install --target "$DEPLOY_DIR/vendor" -r requirements.txt
+  fi
 fi
 
 if [[ -d chat_bot ]]; then
