@@ -32,6 +32,7 @@ Optional secrets:
 
 - `CHAT_BOT_SERVICE_NAME` - systemd service to restart after upload, for example `chat_bot`
 - `CHAT_BOT_HEALTHCHECK_URL` - URL checked after deploy
+- `GOOGLE_SERVICE_ACCOUNT_JSON` - Google service account JSON for the spreadsheet manager
 
 ## Local deploy
 
@@ -61,3 +62,24 @@ If the bot needs PostgreSQL, configure either `DATABASE_URL` in the application 
 - `PGPASSWORD`
 
 The deployment scripts do not print or persist database secrets.
+
+## Google Sheets
+
+The control spreadsheet ID is:
+
+```text
+1OdgpoZiwyAkwnOxRtgr5bFx8WyN2RbO83Fwjss0pUrg
+```
+
+The spreadsheet manager reads credentials from one of:
+
+- `GOOGLE_SERVICE_ACCOUNT_JSON`
+- `GOOGLE_SERVICE_ACCOUNT_FILE`
+
+The Google service account email must be shared into the spreadsheet with editor permissions.
+
+Initialize the expected sheets:
+
+```bash
+python scripts/manage_google_sheet.py init --with-default-description
+```

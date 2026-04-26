@@ -41,6 +41,22 @@ if [[ -f README.md ]]; then
   cp README.md "$DEPLOY_DIR/README.md"
 fi
 
+if [[ -f DEPLOY.md ]]; then
+  cp DEPLOY.md "$DEPLOY_DIR/DEPLOY.md"
+fi
+
+if [[ -f requirements.txt ]]; then
+  cp requirements.txt "$DEPLOY_DIR/requirements.txt"
+fi
+
+if [[ -d chat_bot ]]; then
+  mkdir -p "$DEPLOY_DIR/chat_bot"
+  cp -R chat_bot/. "$DEPLOY_DIR/chat_bot/"
+fi
+
+mkdir -p "$DEPLOY_DIR/scripts"
+cp scripts/manage_google_sheet.py "$DEPLOY_DIR/scripts/manage_google_sheet.py"
+
 {
   echo "project=Chat-bot"
   echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
