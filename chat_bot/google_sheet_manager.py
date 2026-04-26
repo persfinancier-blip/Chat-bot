@@ -11,41 +11,91 @@ SCOPES = ("https://www.googleapis.com/auth/spreadsheets",)
 
 DESCRIPTION_SHEET = "Описание"
 CONFIG_SHEET = "Конфигурация"
+SENDERS_SHEET = "Отправители"
+RECIPIENTS_SHEET = "Получатели"
+TEMPLATES_SHEET = "Шаблоны"
 MAILING_SHEET = "Рассылка"
+METRICS_SHEET = "Метрики"
+SEND_LOG_SHEET = "Лог отправок"
 
 DEFAULT_STRUCTURE = {
-    DESCRIPTION_SHEET: ["Ссылка", "Тип", "Название", "Описание"],
-    CONFIG_SHEET: ["ID магазина", "Сессия отправителя", "Получатель", "Название рассылки"],
+    DESCRIPTION_SHEET: ["Раздел", "Описание"],
+    CONFIG_SHEET: ["key", "value", "comment"],
+    SENDERS_SHEET: ["sender_alias", "display_name", "session_ref", "is_active", "comment", "updated_at"],
+    RECIPIENTS_SHEET: [
+        "recipient_id",
+        "client_name",
+        "shop_id",
+        "recipient_contact",
+        "telegram_chat_id",
+        "is_active",
+        "comment",
+        "updated_at",
+    ],
+    TEMPLATES_SHEET: [
+        "mailing_variant",
+        "title",
+        "template_text",
+        "metrics_source",
+        "is_active",
+        "comment",
+        "updated_at",
+    ],
     MAILING_SHEET: [
-        "ID магазина",
-        "Выручка вчера",
-        "Выручка позавчера",
-        "Динамика выручки",
-        "ДРР вчера",
-        "ДРР позавчера",
-        "Динамика ДРР",
+        "sending_id",
+        "shop_id",
+        "sender_alias",
+        "recipient_id",
+        "recipient_contact",
+        "mailing_variant",
+        "send_at",
+        "timezone",
+        "status",
+        "dry_run",
+        "message_text",
+        "last_error",
+        "sent_at",
+        "telegram_message_id",
+        "attempts",
+        "comment",
+    ],
+    METRICS_SHEET: [
+        "shop_id",
+        "metric_date",
+        "revenue",
+        "drr",
+        "avg_check",
+        "orders",
+        "spend",
+        "comment",
+    ],
+    SEND_LOG_SHEET: [
+        "log_id",
+        "sending_id",
+        "status",
+        "sender_alias",
+        "recipient_contact",
+        "message_text",
+        "error_text",
+        "telegram_message_id",
+        "created_at",
+        "comment",
     ],
 }
 
 DEFAULT_DESCRIPTION_ROWS = [
-    [
-        "scripts/manage_google_sheet.py",
-        "Скрипт py",
-        "manage_google_sheet.py",
-        "CLI для создания листов, удаления листов и внесения изменений в Google Sheet.",
-    ],
-    [
-        "chat_bot/google_sheet_manager.py",
-        "Модуль py",
-        "google_sheet_manager.py",
-        "Обертка над Google Sheets API и базовая структура листов чат-бота.",
-    ],
-    [
-        "deploy/server.env.example",
-        "Конфигурация",
-        "server.env.example",
-        "Пример переменных окружения для деплоя и подключения Google service account.",
-    ],
+    ["Назначение", "Панель управления чат-ботом рассылок"],
+    ["Конфигурация", "Глобальные настройки работы бота"],
+    ["Отправители", "Алиасы Telegram-сессий отправителей"],
+    ["Получатели", "Клиенты/получатели сообщений"],
+    ["Шаблоны", "Варианты рассылок и шаблоны текста"],
+    ["Рассылка", "Очередь заданий на отправку"],
+    ["Метрики", "Табличные данные для формирования сообщений"],
+    ["Лог отправок", "История попыток отправки и ошибок"],
+    ["status=ready", "Строка готова к обработке"],
+    ["status=draft", "Черновик, бот не трогает"],
+    ["dry_run=TRUE", "Тестовый режим без реальной отправки"],
+    ["dry_run=FALSE", "Реальная отправка"],
 ]
 
 

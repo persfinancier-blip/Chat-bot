@@ -72,3 +72,17 @@ jobs:
           SERVICE_NAME: ${{ secrets.CHAT_BOT_SERVICE_NAME }}
           HEALTHCHECK_URL: ${{ secrets.CHAT_BOT_HEALTHCHECK_URL }}
         run: bash ./scripts/publish_to_server.sh
+
+      - name: Publish Telegram runtime copy
+        env:
+          SERVER_HOST: ${{ secrets.SSH_HOST }}
+          SERVER_USER: ${{ secrets.SSH_USER }}
+          SERVER_PORT: ${{ secrets.SSH_PORT }}
+          SSH_PRIVATE_KEY_PATH: /home/runner/.ssh/id_ed25519
+        run: |
+          set -euo pipefail
+          SSH_TARGET="${SERVER_USER}@${SERVER_HOST}"
+          SSH_OPTS=(-p "${SERVER_PORT:-22}" -i "$SSH_PRIVATE_KEY_PATH" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new)
+          ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'mkdir -p "$HOME/Chat_Bot" "$HOME/Chat_Bot/sessions" && chmod 700 "$HOME/Chat_Bot/sessions"'
+          tar -C dist -czf - . | ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'tar -xzf - -C "$HOME/Chat_Bot"'
+          ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'cd "$HOME/Chat_Bot" && bash scripts/prepare_server_telegram.sh'

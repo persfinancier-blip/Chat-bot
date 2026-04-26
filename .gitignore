@@ -1,9 +1,12 @@
 dist/
+sessions/
 
 .env
 .env.*
 deploy/server.env
 
+*.session
+*.session-journal
 *.pem
 *.key
 id_ed25519

@@ -4,6 +4,8 @@ import unittest
 from chat_bot.google_sheet_manager import (
     CONFIG_SHEET,
     DEFAULT_STRUCTURE,
+    MAILING_SHEET,
+    METRICS_SHEET,
     normalize_matrix,
     parse_delimited_row,
     parse_values_json,
@@ -35,7 +37,36 @@ class GoogleSheetManagerHelpersTest(unittest.TestCase):
     def test_config_header_contains_required_columns(self):
         self.assertEqual(
             DEFAULT_STRUCTURE[CONFIG_SHEET],
-            ["ID магазина", "Сессия отправителя", "Получатель", "Название рассылки"],
+            ["key", "value", "comment"],
+        )
+
+    def test_mailing_header_matches_control_sheet_contract(self):
+        self.assertEqual(
+            DEFAULT_STRUCTURE[MAILING_SHEET],
+            [
+                "sending_id",
+                "shop_id",
+                "sender_alias",
+                "recipient_id",
+                "recipient_contact",
+                "mailing_variant",
+                "send_at",
+                "timezone",
+                "status",
+                "dry_run",
+                "message_text",
+                "last_error",
+                "sent_at",
+                "telegram_message_id",
+                "attempts",
+                "comment",
+            ],
+        )
+
+    def test_metrics_header_matches_control_sheet_contract(self):
+        self.assertEqual(
+            DEFAULT_STRUCTURE[METRICS_SHEET],
+            ["shop_id", "metric_date", "revenue", "drr", "avg_check", "orders", "spend", "comment"],
         )
 
 

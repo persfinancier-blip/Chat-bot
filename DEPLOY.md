@@ -32,7 +32,7 @@ Optional secrets:
 
 - `CHAT_BOT_SERVICE_NAME` - systemd service to restart after upload, for example `chat_bot`
 - `CHAT_BOT_HEALTHCHECK_URL` - URL checked after deploy
-- `GOOGLE_SERVICE_ACCOUNT_JSON` - Google service account JSON for the spreadsheet manager
+- `GOOGLE_SERVICE_ACCOUNT_JSON` - optional future runtime access for the spreadsheet manager
 
 ## Local deploy
 
@@ -71,15 +71,71 @@ The control spreadsheet ID is:
 1OdgpoZiwyAkwnOxRtgr5bFx8WyN2RbO83Fwjss0pUrg
 ```
 
-The spreadsheet manager reads credentials from one of:
+During development, the table structure is managed by Codex through the Google Drive plugin.
+
+The local Python spreadsheet manager is optional. If the server bot later needs autonomous spreadsheet access, configure one of:
 
 - `GOOGLE_SERVICE_ACCOUNT_JSON`
 - `GOOGLE_SERVICE_ACCOUNT_FILE`
 
-The Google service account email must be shared into the spreadsheet with editor permissions.
+The Google service account email must be shared into the spreadsheet with editor permissions before autonomous runtime access can work.
 
-Initialize the expected sheets:
+## Telegram sender sessions
+
+Telegram-отправители работают через Telethon session-файлы. Session-файлы хранятся только на сервере:
+
+```text
+~/Chat_Bot/sessions/
+```
+
+Runtime variables:
+
+- `TELEGRAM_API_ID`
+- `TELEGRAM_API_HASH`
+- `TELEGRAM_SESSIONS_DIR`
+
+Подготовка сервера после deploy:
 
 ```bash
-python scripts/manage_google_sheet.py init --with-default-description
+cd ~/Chat_Bot
+mkdir -p sessions
+chmod 700 sessions
+python3 -m pip install -r requirements.txt
 ```
+
+Или через скрипт:
+
+```bash
+cd ~/Chat_Bot
+bash scripts/prepare_server_telegram.sh
+```
+
+Первая сессия:
+
+```text
+sender_alias=seller_main
+phone=+79362262038
+session_file=~/Chat_Bot/sessions/seller_main.session
+```
+
+Команда на сервере:
+
+```bash
+cd ~/Chat_Bot
+export TELEGRAM_API_ID="25823233"
+export TELEGRAM_API_HASH="<TELEGRAM_API_HASH>"
+export TELEGRAM_SESSIONS_DIR="$HOME/Chat_Bot/sessions"
+python3 scripts/telegram_login.py --sender-alias seller_main --phone +79362262038
+```
+
+Проверка отправки самому себе:
+
+```bash
+cd ~/Chat_Bot
+export TELEGRAM_API_ID="25823233"
+export TELEGRAM_API_HASH="<TELEGRAM_API_HASH>"
+export TELEGRAM_SESSIONS_DIR="$HOME/Chat_Bot/sessions"
+python3 scripts/send_test_message.py --sender-alias seller_main --to me --message "test from Chat_Bot"
+```
+
+Связь с Google таблицей: лист `Отправители` должен содержать `sender_alias=seller_main`.

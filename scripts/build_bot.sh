@@ -55,7 +55,7 @@ if [[ -d chat_bot ]]; then
 fi
 
 mkdir -p "$DEPLOY_DIR/scripts"
-cp scripts/manage_google_sheet.py "$DEPLOY_DIR/scripts/manage_google_sheet.py"
+cp -R scripts/. "$DEPLOY_DIR/scripts/"
 
 {
   echo "project=Chat-bot"
