@@ -9,6 +9,12 @@ from chat_bot import telegram_sender
 
 
 class FakeTelegramClient:
+    async def connect(self):
+        self.connected = True
+
+    async def disconnect(self):
+        self.disconnected = True
+
     async def __aenter__(self):
         return self
 

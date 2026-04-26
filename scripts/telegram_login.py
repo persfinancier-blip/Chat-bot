@@ -37,7 +37,8 @@ async def login(sender_alias: str, phone: str) -> None:
 
     client = _get_telegram_client(_get_session_base_path(alias, config), config.api_id, config.api_hash)
 
-    async with client:
+    await client.connect()
+    try:
         if await client.is_user_authorized():
             print(f"SESSION_ALREADY_AUTHORIZED {alias}")
             return
@@ -57,6 +58,8 @@ async def login(sender_alias: str, phone: str) -> None:
 
         if not await client.is_user_authorized():
             raise RuntimeError(f"Telegram session is not authorized for sender_alias: {alias}")
+    finally:
+        await client.disconnect()
 
     print(f"SESSION_OK {alias}")
 

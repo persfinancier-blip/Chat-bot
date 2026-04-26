@@ -72,12 +72,15 @@ async def _send_telegram_message_async(
 
     client = _get_telegram_client(_get_session_base_path(sender_alias, config), config.api_id, config.api_hash)
 
-    async with client:
+    await client.connect()
+    try:
         if not await client.is_user_authorized():
             raise RuntimeError(f"Telegram session is not authorized for sender_alias: {sender_alias}")
 
         target = "me" if recipient_contact == "me" else recipient_contact
         message = await client.send_message(target, message_text)
+    finally:
+        await client.disconnect()
 
     return {
         "status": "sent",
