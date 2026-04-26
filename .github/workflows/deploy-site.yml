@@ -86,3 +86,4 @@ jobs:
           ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'mkdir -p "$HOME/Chat_Bot" "$HOME/Chat_Bot/sessions" && chmod 700 "$HOME/Chat_Bot/sessions"'
           tar -C dist -czf - . | ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'tar -xzf - -C "$HOME/Chat_Bot"'
           ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'cd "$HOME/Chat_Bot" && bash scripts/prepare_server_telegram.sh'
+          ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'cd "$HOME/Chat_Bot" && ls -la && ls -la scripts && ls -la chat_bot && ls -la sessions && test -f scripts/telegram_login.py && test -f scripts/send_test_message.py && test -f chat_bot/telegram_sender.py && test -d sessions'
