@@ -1,0 +1,74 @@
+name: Deploy Site
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Ensure main branch
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "::error::Deployment is allowed only from main branch."
+            exit 1
+          fi
+
+      - name: Check required secrets
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          WEB_ROOT: ${{ secrets.WEB_ROOT }}
+        run: |
+          missing=0
+          for key in SSH_HOST SSH_USER SSH_PRIVATE_KEY WEB_ROOT; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing required secret: $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build bot artifact
+        run: bash ./scripts/build_bot.sh
+
+      - name: Setup SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${SSH_PORT:-22}" "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Publish to server
+        env:
+          CONFIRM_DEPLOY: YES
+          SERVER_HOST: ${{ secrets.SSH_HOST }}
+          SERVER_USER: ${{ secrets.SSH_USER }}
+          SERVER_PORT: ${{ secrets.SSH_PORT }}
+          WEB_ROOT: ${{ secrets.WEB_ROOT }}
+          DEPLOY_DIR: dist
+          SSH_PRIVATE_KEY_PATH: /home/runner/.ssh/id_ed25519
+          SERVICE_NAME: ${{ secrets.CHAT_BOT_SERVICE_NAME }}
+          HEALTHCHECK_URL: ${{ secrets.CHAT_BOT_HEALTHCHECK_URL }}
+        run: bash ./scripts/publish_to_server.sh
