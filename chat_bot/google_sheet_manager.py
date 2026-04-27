@@ -227,6 +227,18 @@ class GoogleSheetManager:
             .execute()
         )
 
+    def get_values(self, a1_range: str) -> list[list[Any]]:
+        result = (
+            self.service.spreadsheets()
+            .values()
+            .get(
+                spreadsheetId=self.spreadsheet_id,
+                range=a1_range,
+            )
+            .execute()
+        )
+        return result.get("values", [])
+
     def append_rows(self, sheet_title: str, rows: list[list[Any]]) -> dict[str, Any]:
         return (
             self.service.spreadsheets()

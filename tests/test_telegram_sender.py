@@ -32,12 +32,12 @@ class FakeTelegramClient:
 
 class TelegramSenderTest(unittest.TestCase):
     def test_missing_api_id_raises(self):
-        with mock.patch.dict(os.environ, {"TELEGRAM_API_HASH": "hash"}, clear=True):
+        with mock.patch.dict(os.environ, {"LOCAL_MODE": "sender", "TELEGRAM_API_HASH": "hash"}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "TELEGRAM_API_ID is required"):
                 telegram_sender.load_telegram_config()
 
     def test_missing_api_hash_raises(self):
-        with mock.patch.dict(os.environ, {"TELEGRAM_API_ID": "123"}, clear=True):
+        with mock.patch.dict(os.environ, {"LOCAL_MODE": "sender", "TELEGRAM_API_ID": "123"}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "TELEGRAM_API_HASH is required"):
                 telegram_sender.load_telegram_config()
 
@@ -49,6 +49,7 @@ class TelegramSenderTest(unittest.TestCase):
                     "TELEGRAM_API_ID": "123",
                     "TELEGRAM_API_HASH": "hash",
                     "TELEGRAM_SESSIONS_DIR": tmp,
+                    "LOCAL_MODE": "sender",
                 },
                 clear=True,
             ):
@@ -76,6 +77,7 @@ class TelegramSenderTest(unittest.TestCase):
                     "TELEGRAM_API_ID": "123",
                     "TELEGRAM_API_HASH": "hash",
                     "TELEGRAM_SESSIONS_DIR": tmp,
+                    "LOCAL_MODE": "sender",
                 },
                 clear=True,
             ):
@@ -99,6 +101,15 @@ class TelegramSenderTest(unittest.TestCase):
                 "telegram_message_id": 12345,
             },
         )
+
+    def test_telegram_config_requires_local_sender_mode(self):
+        with mock.patch.dict(
+            os.environ,
+            {"TELEGRAM_API_ID": "123", "TELEGRAM_API_HASH": "hash"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "LOCAL_MODE=sender"):
+                telegram_sender.load_telegram_config()
 
 
 if __name__ == "__main__":

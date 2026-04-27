@@ -47,10 +47,14 @@ fi
 
 if [[ -f requirements.txt ]]; then
   cp requirements.txt "$DEPLOY_DIR/requirements.txt"
-  if command -v python3 >/dev/null 2>&1; then
-    python3 -m pip install --target "$DEPLOY_DIR/vendor" -r requirements.txt
-  elif command -v python >/dev/null 2>&1; then
-    python -m pip install --target "$DEPLOY_DIR/vendor" -r requirements.txt
+  PYTHON_BIN=""
+  if command -v python3 >/dev/null 2>&1 && python3 -c "import sys" >/dev/null 2>&1; then
+    PYTHON_BIN="python3"
+  elif command -v python >/dev/null 2>&1 && python -c "import sys" >/dev/null 2>&1; then
+    PYTHON_BIN="python"
+  fi
+  if [[ -n "$PYTHON_BIN" ]]; then
+    "$PYTHON_BIN" -m pip install --target "$DEPLOY_DIR/vendor" -r requirements.txt
   fi
 fi
 

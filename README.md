@@ -1,99 +1,160 @@
 # Chat-bot
 
-Deployment files are prepared for GitHub Actions and local SSH publishing.
+Проект разделен на два независимых контура:
 
-- Automatic workflow: `.github/workflows/deploy.yml`
-- Manual workflow: `.github/workflows/deploy-site.yml`
-- Local build: `scripts/build_bot.sh`
-- Local publish: `scripts/publish_to_server.sh`
-- Deployment notes: `DEPLOY.md`
+- Linux server: `SERVER_MODE=metrics`, сбор метрик и постановка задач в Google Sheet.
+- Windows PC: `LOCAL_MODE=sender`, локальная отправка Telegram через Telethon и VPN на ПК.
 
-## Управление Google таблицей
-
-Основной способ управления таблицей на этапе разработки:
-
-```text
-Codex -> @google-drive plugin -> Google Sheet
-```
-
-Структура таблицы создается и меняется через Codex Google Drive plugin. Service account для этого сценария не требуется.
-
-Python-скрипт `scripts/manage_google_sheet.py` является optional legacy/local tool. Он оставлен в репозитории для локальных экспериментов и будущей автономной интеграции, но не является обязательным способом управления таблицей.
-
-Серверный бот в будущем должен иметь отдельный runtime-доступ к таблице, если он будет работать автономно без Codex.
-
-Таблица управления:
+Источник истины между контурами: Google Sheet `Рассылка отчетов`.
 
 ```text
 1OdgpoZiwyAkwnOxRtgr5bFx8WyN2RbO83Fwjss0pUrg
 ```
 
-Финальные листы:
+## Архитектура
 
-- `Описание`
-- `Конфигурация`
-- `Отправители`
-- `Получатели`
-- `Шаблоны`
-- `Рассылка`
-- `Метрики`
-- `Лог отправок`
+Серверный контур не отправляет Telegram и не инициализирует Telethon. Он должен писать задачи в лист `Рассылка` со статусом `pending`.
 
-Описание структуры: `docs/google_sheet_structure.md`.
+Локальный контур на Windows читает `pending`, ставит строку в `processing`, отправляет через Telethon, затем обновляет строку как `sent` или `failed` и пишет запись в `Лог отправок`.
 
-### Optional legacy/local tool
+## Google Sheet Contract
 
-Локальный CLI может работать через service account, если он понадобится отдельно от Codex plugin:
+Обязательные колонки листа `Рассылка`:
+
+```text
+sending_id | shop_id | sender_alias | recipient_id | recipient_contact | mailing_variant | send_at | timezone | status | dry_run | message_text | last_error | sent_at | telegram_message_id | attempts | comment
+```
+
+Статусы:
+
+- `pending` - задача готова к локальной отправке.
+- `processing` - локальный sender взял строку в работу.
+- `sent` - сообщение отправлено или dry-run успешно обработан.
+- `failed` - отправка завершилась ошибкой.
+
+Правила обработки:
+
+- Сервер создает или обновляет задачи только как `pending`.
+- Локальный sender обрабатывает только `pending`.
+- Перед отправкой sender меняет статус на `processing` и увеличивает `attempts` на `1`.
+- После успеха sender пишет `status=sent`, `sent_at`, `telegram_message_id`, очищает `last_error`.
+- После ошибки sender пишет `status=failed`, `last_error`, оставляет `telegram_message_id` пустым.
+- Каждая попытка пишет строку в `Лог отправок`.
+- Повторная отправка предотвращается локальным lock-файлом и переходом `pending -> processing`.
+
+Если `message_text` пустой, локальный sender формирует базовый текст из `sending_id`, `shop_id`, `mailing_variant`.
+
+## Windows Local Sender
+
+Подготовка:
 
 ```powershell
+cd C:\Dev\Chat-bot
 python -m venv .venv
-.\.venv\Scripts\python -m pip install -r requirements.txt
-.\.venv\Scripts\python scripts\manage_google_sheet.py add-sheet --title "Тест"
-.\.venv\Scripts\python scripts\manage_google_sheet.py append-row --sheet "Конфигурация" --values "123|session_name|recipient|daily_report"
-.\.venv\Scripts\python scripts\manage_google_sheet.py set-cell --sheet "Рассылка" --cell B2 --value "100000"
-.\.venv\Scripts\python scripts\manage_google_sheet.py delete-sheet --title "Тест"
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-## Telegram sender sessions
+Создайте локальный файл `.env.local` по примеру `deploy/local.sender.env.example`. Не коммитьте реальные секреты.
 
-Telegram-отправители работают через Telethon session-файлы. Session-файлы не хранятся в Git и должны находиться только на сервере:
+Минимальные переменные:
 
 ```text
-~/Chat_Bot/sessions/
+LOCAL_MODE=sender
+CHAT_BOT_SPREADSHEET_ID=1OdgpoZiwyAkwnOxRtgr5bFx8WyN2RbO83Fwjss0pUrg
+GOOGLE_SERVICE_ACCOUNT_FILE=C:\secure\google-service-account.json
+TELEGRAM_API_ID=25823233
+TELEGRAM_API_HASH=<secret>
+TELEGRAM_SESSIONS_DIR=C:\Dev\Chat-bot\sessions
+DEFAULT_SENDER_ALIAS=seller_main
 ```
 
-Переменные окружения:
+Запуск вручную:
 
-- `TELEGRAM_API_ID`
-- `TELEGRAM_API_HASH`
-- `TELEGRAM_SESSIONS_DIR`
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Dev\Chat-bot\scripts\run_local_sender.ps1
+```
 
-Первая сессия:
+Логи:
 
 ```text
-sender_alias=seller_main
-phone=+79362262038
-session_file=~/Chat_Bot/sessions/seller_main.session
+C:\Dev\Chat-bot\logs\sender.log
 ```
 
-Создание сессии на сервере:
+Планировщик Windows:
+
+```powershell
+schtasks /Create /TN ChatBotLocalSender /SC MINUTE /MO 5 /F /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Dev\Chat-bot\scripts\run_local_sender.ps1"
+schtasks /Run /TN ChatBotLocalSender
+schtasks /Query /TN ChatBotLocalSender /V /FO LIST
+```
+
+Удаление задачи:
+
+```powershell
+schtasks /Delete /TN ChatBotLocalSender /F
+```
+
+## Local Telegram
+
+Создание локальной session:
+
+```powershell
+cd C:\Dev\Chat-bot
+$env:LOCAL_MODE="sender"
+$env:TELEGRAM_API_ID="25823233"
+$env:TELEGRAM_API_HASH="<secret>"
+$env:TELEGRAM_SESSIONS_DIR="C:\Dev\Chat-bot\sessions"
+.\.venv\Scripts\python.exe scripts\telegram_login.py --sender-alias seller_main --phone +79362262038
+```
+
+Smoke-test подключения:
+
+```powershell
+$env:LOCAL_MODE="sender"
+.\.venv\Scripts\python.exe scripts\telegram_connect_smoke.py --timeout-sec 20
+```
+
+Опциональный SOCKS5:
+
+```powershell
+$env:TG_PROXY_TYPE="socks5"
+$env:TG_PROXY_HOST="<host>"
+$env:TG_PROXY_PORT="<port>"
+```
+
+## Linux Server Metrics
+
+Сервер запускается только в режиме:
+
+```bash
+SERVER_MODE=metrics
+```
+
+Проверка metrics-only:
 
 ```bash
 cd ~/Chat_Bot
-export TELEGRAM_API_ID="25823233"
-export TELEGRAM_API_HASH="<TELEGRAM_API_HASH>"
-export TELEGRAM_SESSIONS_DIR="$HOME/Chat_Bot/sessions"
-python3 scripts/telegram_login.py --sender-alias seller_main --phone +79362262038
+SERVER_MODE=metrics bash scripts/run_server_metrics.sh --check-only
 ```
 
-Проверка отправки самому себе:
+Создание тестовой pending-задачи, если настроен доступ к Google Sheet:
 
 ```bash
 cd ~/Chat_Bot
-export TELEGRAM_API_ID="25823233"
-export TELEGRAM_API_HASH="<TELEGRAM_API_HASH>"
-export TELEGRAM_SESSIONS_DIR="$HOME/Chat_Bot/sessions"
-python3 scripts/send_test_message.py --sender-alias seller_main --to me --message "test from Chat_Bot"
+SERVER_MODE=metrics METRICS_RECIPIENT_CONTACT="@recipient" bash scripts/run_server_metrics.sh --create-test-task
 ```
 
-Связь с Google таблицей: лист `Отправители` должен содержать `sender_alias=seller_main`. Значение `sender_alias` совпадает с именем session-файла без расширения.
+Серверу не нужны `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSIONS_DIR`.
+
+## Troubleshooting
+
+- VPN выключен на ПК: `telegram_connect_smoke.py` или sender даст network timeout.
+- Нет доступа к Google Sheet: проверьте `GOOGLE_SERVICE_ACCOUNT_FILE` или `GOOGLE_SERVICE_ACCOUNT_JSON` и права service account на таблицу.
+- Lock-файл: если sender уже запущен, второй запуск пишет `LOCKED` в `logs\sender.log`.
+- Нет session: запустите `scripts\telegram_login.py` локально в `LOCAL_MODE=sender`.
+- Сервер пытается отправлять Telegram: это ошибка конфигурации; на сервере должен быть только `SERVER_MODE=metrics`.
+
+## Optional Tools
+
+`scripts/manage_google_sheet.py` остается optional legacy/local tool для ручной работы через service account. Основное управление структурой таблицы во время разработки можно делать через Codex Google Drive plugin.

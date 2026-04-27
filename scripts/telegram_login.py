@@ -35,7 +35,12 @@ async def login(sender_alias: str, phone: str) -> None:
     alias = validate_sender_alias(sender_alias)
     config.sessions_dir.mkdir(parents=True, exist_ok=True)
 
-    client = _get_telegram_client(_get_session_base_path(alias, config), config.api_id, config.api_hash)
+    client = _get_telegram_client(
+        _get_session_base_path(alias, config),
+        config.api_id,
+        config.api_hash,
+        config.proxy,
+    )
 
     await client.connect()
     try:

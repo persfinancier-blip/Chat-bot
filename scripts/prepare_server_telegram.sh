@@ -4,6 +4,11 @@ set -euo pipefail
 APP_DIR="${HOME}/Chat_Bot"
 SESSIONS_DIR="${APP_DIR}/sessions"
 
+if [[ "${LOCAL_MODE:-}" != "sender" ]]; then
+  echo "ERROR: LOCAL_MODE=sender is required. Linux server metrics mode must not prepare Telegram." >&2
+  exit 1
+fi
+
 mkdir -p "$SESSIONS_DIR"
 chmod 700 "$SESSIONS_DIR"
 

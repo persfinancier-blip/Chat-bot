@@ -73,7 +73,7 @@ jobs:
           HEALTHCHECK_URL: ${{ secrets.CHAT_BOT_HEALTHCHECK_URL }}
         run: bash ./scripts/publish_to_server.sh
 
-      - name: Publish Telegram runtime copy
+      - name: Publish metrics runtime copy
         env:
           SERVER_HOST: ${{ secrets.SSH_HOST }}
           SERVER_USER: ${{ secrets.SSH_USER }}
@@ -83,7 +83,7 @@ jobs:
           set -euo pipefail
           SSH_TARGET="${SERVER_USER}@${SERVER_HOST}"
           SSH_OPTS=(-p "${SERVER_PORT:-22}" -i "$SSH_PRIVATE_KEY_PATH" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new)
-          ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'mkdir -p "$HOME/Chat_Bot" "$HOME/Chat_Bot/sessions" && chmod 700 "$HOME/Chat_Bot/sessions"'
+          ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'mkdir -p "$HOME/Chat_Bot"'
           tar -C dist -czf - . | ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'tar -xzf - -C "$HOME/Chat_Bot"'
-          ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'cd "$HOME/Chat_Bot" && bash scripts/prepare_server_telegram.sh'
-          ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'cd "$HOME/Chat_Bot" && ls -la && ls -la scripts && ls -la chat_bot && ls -la sessions && test -f scripts/telegram_login.py && test -f scripts/send_test_message.py && test -f chat_bot/telegram_sender.py && test -d sessions'
+          ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'cd "$HOME/Chat_Bot" && SERVER_MODE=metrics bash scripts/run_server_metrics.sh --check-only'
+          ssh "${SSH_OPTS[@]}" "$SSH_TARGET" 'cd "$HOME/Chat_Bot" && ls -la && ls -la scripts && ls -la chat_bot && test -f scripts/run_server_metrics.sh && test -f scripts/server_metrics_worker.py && test -f chat_bot/sheet_queue.py'

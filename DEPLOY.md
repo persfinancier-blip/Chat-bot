@@ -1,6 +1,6 @@
 # Deploy
 
-This repository uses the same deployment shape as `ai-orchestrator`: build an artifact directory, then publish it to the server over SSH.
+Deploy publishes the project files to Linux. The Linux side is metrics-only.
 
 ## Target
 
@@ -8,9 +8,25 @@ This repository uses the same deployment shape as `ai-orchestrator`: build an ar
 - `SERVER_USER=sourcecraft`
 - `SERVER_PORT=22`
 - `WEB_ROOT=/sourcecraft.dev/app/chat-bot`
-- default artifact directory: `dist`
+- runtime copy: `~/Chat_Bot`
 
-## GitHub Actions secrets
+## Runtime Roles
+
+Linux server:
+
+```bash
+SERVER_MODE=metrics
+```
+
+Windows PC:
+
+```powershell
+$env:LOCAL_MODE="sender"
+```
+
+The server must not run Telethon, create Telegram sessions, or send Telegram messages. Telegram sending happens only on the Windows PC through the local sender worker.
+
+## GitHub Actions
 
 Automatic deploy on push to `main` uses:
 
@@ -28,15 +44,113 @@ Manual deploy (`Deploy Site`) uses:
 - `SSH_PRIVATE_KEY`
 - `WEB_ROOT`
 
-Optional secrets:
+Optional:
 
-- `CHAT_BOT_SERVICE_NAME` - systemd service to restart after upload, for example `chat_bot`
-- `CHAT_BOT_HEALTHCHECK_URL` - URL checked after deploy
-- `GOOGLE_SERVICE_ACCOUNT_JSON` - optional future runtime access for the spreadsheet manager
+- `CHAT_BOT_SERVICE_NAME`
+- `CHAT_BOT_HEALTHCHECK_URL`
+- `GOOGLE_SERVICE_ACCOUNT_JSON` for future autonomous server metrics writes.
 
-## Local deploy
+The deploy workflow uploads files and runs:
 
-Create `deploy/server.env` from `deploy/server.env.example`, then export the variables in your shell and run:
+```bash
+SERVER_MODE=metrics bash scripts/run_server_metrics.sh --check-only
+```
+
+This verifies that the deployed server runtime is metrics-only and does not initialize Telegram.
+
+## Server Metrics Runner
+
+After deploy:
+
+```bash
+cd ~/Chat_Bot
+SERVER_MODE=metrics bash scripts/run_server_metrics.sh --check-only
+```
+
+To create a test pending task, configure Google Sheet access and run:
+
+```bash
+cd ~/Chat_Bot
+export SERVER_MODE=metrics
+export GOOGLE_SERVICE_ACCOUNT_FILE=/secure/google-service-account.json
+export METRICS_RECIPIENT_CONTACT="@recipient"
+bash scripts/run_server_metrics.sh --create-test-task
+```
+
+Real metrics collection should write rows to `Рассылка` with:
+
+- `status=pending`
+- `recipient_contact`
+- `sender_alias`
+- `message_text` or blank
+- `attempts=0`
+- empty `last_error`, `sent_at`, `telegram_message_id`
+
+## Local Windows Sender
+
+Prepare:
+
+```powershell
+cd C:\Dev\Chat-bot
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Create `.env.local` from `deploy/local.sender.env.example` and fill secrets locally.
+
+Run once:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Dev\Chat-bot\scripts\run_local_sender.ps1
+```
+
+Create scheduler:
+
+```powershell
+schtasks /Create /TN ChatBotLocalSender /SC MINUTE /MO 5 /F /TR "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Dev\Chat-bot\scripts\run_local_sender.ps1"
+```
+
+Run now:
+
+```powershell
+schtasks /Run /TN ChatBotLocalSender
+```
+
+Logs:
+
+```text
+C:\Dev\Chat-bot\logs\sender.log
+```
+
+Delete scheduler:
+
+```powershell
+schtasks /Delete /TN ChatBotLocalSender /F
+```
+
+## Google Sheet Contract
+
+`Рассылка` statuses:
+
+- `pending`
+- `processing`
+- `sent`
+- `failed`
+
+`Лог отправок` receives one row per local sender attempt:
+
+```text
+log_id | sending_id | status | sender_alias | recipient_contact | message_text | error_text | telegram_message_id | created_at | comment
+```
+
+Idempotency:
+
+- The local PowerShell wrapper uses `logs\sender.lock`.
+- The queue claim changes `pending` to `processing` and increments `attempts`.
+- Rows already in `processing`, `sent`, or `failed` are not picked again.
+
+## Local Deploy
 
 ```bash
 ./scripts/build_bot.sh
@@ -49,93 +163,8 @@ SSH_PRIVATE_KEY_PATH=/path/to/server/key \
 ./scripts/publish_to_server.sh
 ```
 
-The publish script verifies that the target directory is writable, uploads `dist` via tar-over-ssh, and checks that `index.html` exists on the server.
+## Security
 
-## Database
-
-If the bot needs PostgreSQL, configure either `DATABASE_URL` in the application layer or the standard variables:
-
-- `PGHOST`
-- `PGPORT`
-- `PGDATABASE`
-- `PGUSER`
-- `PGPASSWORD`
-
-The deployment scripts do not print or persist database secrets.
-
-## Google Sheets
-
-The control spreadsheet ID is:
-
-```text
-1OdgpoZiwyAkwnOxRtgr5bFx8WyN2RbO83Fwjss0pUrg
-```
-
-During development, the table structure is managed by Codex through the Google Drive plugin.
-
-The local Python spreadsheet manager is optional. If the server bot later needs autonomous spreadsheet access, configure one of:
-
-- `GOOGLE_SERVICE_ACCOUNT_JSON`
-- `GOOGLE_SERVICE_ACCOUNT_FILE`
-
-The Google service account email must be shared into the spreadsheet with editor permissions before autonomous runtime access can work.
-
-## Telegram sender sessions
-
-Telegram-отправители работают через Telethon session-файлы. Session-файлы хранятся только на сервере:
-
-```text
-~/Chat_Bot/sessions/
-```
-
-Runtime variables:
-
-- `TELEGRAM_API_ID`
-- `TELEGRAM_API_HASH`
-- `TELEGRAM_SESSIONS_DIR`
-
-Подготовка сервера после deploy:
-
-```bash
-cd ~/Chat_Bot
-mkdir -p sessions
-chmod 700 sessions
-python3 -m pip install -r requirements.txt
-```
-
-Или через скрипт:
-
-```bash
-cd ~/Chat_Bot
-bash scripts/prepare_server_telegram.sh
-```
-
-Первая сессия:
-
-```text
-sender_alias=seller_main
-phone=+79362262038
-session_file=~/Chat_Bot/sessions/seller_main.session
-```
-
-Команда на сервере:
-
-```bash
-cd ~/Chat_Bot
-export TELEGRAM_API_ID="25823233"
-export TELEGRAM_API_HASH="<TELEGRAM_API_HASH>"
-export TELEGRAM_SESSIONS_DIR="$HOME/Chat_Bot/sessions"
-python3 scripts/telegram_login.py --sender-alias seller_main --phone +79362262038
-```
-
-Проверка отправки самому себе:
-
-```bash
-cd ~/Chat_Bot
-export TELEGRAM_API_ID="25823233"
-export TELEGRAM_API_HASH="<TELEGRAM_API_HASH>"
-export TELEGRAM_SESSIONS_DIR="$HOME/Chat_Bot/sessions"
-python3 scripts/send_test_message.py --sender-alias seller_main --to me --message "test from Chat_Bot"
-```
-
-Связь с Google таблицей: лист `Отправители` должен содержать `sender_alias=seller_main`.
+- Do not commit `.env.local`, service account JSON, private keys, or `.session` files.
+- Do not print Telegram API hash, service account JSON, or session contents in logs.
+- Keep Telegram sessions on the Windows sender machine, not on the Linux server.
