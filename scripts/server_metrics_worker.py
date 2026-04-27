@@ -57,18 +57,22 @@ def main(argv: list[str] | None = None) -> int:
         parser.exit(1, "ERROR: --recipient-contact or METRICS_RECIPIENT_CONTACT is required\n")
 
     sending_id = args.sending_id or f"SND-{utc_timestamp().replace('-', '').replace(':', '').replace(' ', '-')}"
-    manager = GoogleSheetManager(spreadsheet_id=args.spreadsheet_id)
-    queue = SheetQueue(manager)
-    queue.create_pending_task(
-        sending_id=sending_id,
-        shop_id=args.shop_id,
-        sender_alias=args.sender_alias,
-        recipient_contact=args.recipient_contact,
-        mailing_variant=args.mailing_variant,
-        message_text=args.message_text,
-        dry_run=args.dry_run,
-        comment="server metrics",
-    )
+    try:
+        manager = GoogleSheetManager(spreadsheet_id=args.spreadsheet_id)
+        queue = SheetQueue(manager)
+        queue.create_pending_task(
+            sending_id=sending_id,
+            shop_id=args.shop_id,
+            sender_alias=args.sender_alias,
+            recipient_contact=args.recipient_contact,
+            mailing_variant=args.mailing_variant,
+            message_text=args.message_text,
+            dry_run=args.dry_run,
+            comment="server metrics",
+        )
+    except RuntimeError as exc:
+        parser.exit(1, f"ERROR: {exc}\n")
+
     print(f"PENDING_TASK_READY {sending_id}")
     return 0
 
