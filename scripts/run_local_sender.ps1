@@ -65,8 +65,14 @@ try {
     }
 
     Write-Log "START local sender max_messages=$MaxMessages"
-    & $Python "scripts\local_sender_worker.py" --max-messages $MaxMessages *>> $LogPath
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $output = & $Python "scripts\local_sender_worker.py" --max-messages $MaxMessages 2>&1
     $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = $previousErrorActionPreference
+    foreach ($line in $output) {
+        Add-Content -Path $LogPath -Value $line.ToString() -Encoding UTF8
+    }
     Write-Log "END local sender exit_code=$exitCode"
     exit $exitCode
 } catch {
