@@ -120,7 +120,7 @@ export default function App() {
           })}
         </nav>
 
-        {view === "control" ? <GlobalControlPanel overview={overview} /> : null}
+        {view === "control" ? <GlobalControlPanel overview={overview} jobs={jobs} logs={logs} workers={workers} /> : null}
         {view === "jobs" ? <JobsMatrix jobs={jobs} /> : null}
         {view === "logs" ? <LogsObservatory logs={logs} /> : null}
         {view === "workers" ? <WorkersHost workers={workers} metrics={metrics} /> : null}
