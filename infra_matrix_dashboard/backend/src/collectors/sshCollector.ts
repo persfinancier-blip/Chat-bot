@@ -2,7 +2,7 @@ import type { AppConfig, HostMetrics, JobRun, LogHeartbeat, Snapshot, WorkerStat
 import { buildAlerts } from "../services/alerts.js";
 import { SshClient } from "./sshClient.js";
 
-const remoteScript = (logsPath: string) => `
+export const buildCollectorScript = (logsPath: string) => `
 set -euo pipefail
 LOGS_PATH=${shellQuote(logsPath)}
 now_iso=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -60,12 +60,12 @@ ps -eo pid,pcpu,pmem,comm --sort=-pcpu | head -n 8 | tail -n +2 | awk '{print "P
 export const collectSshSnapshot = async (config: AppConfig): Promise<Snapshot> => {
   const ssh = new SshClient(config);
   const collectedAt = new Date().toISOString();
-  const { stdout, stderr, code } = await ssh.exec(remoteScript(config.logsPath), 35_000);
+  const { stdout, stderr, code } = await ssh.exec(buildCollectorScript(config.logsPath), 35_000);
   const errors: string[] = [];
   if (stderr.trim()) errors.push(stderr.trim().slice(0, 1200));
   if (code && code !== 0) errors.push(`remote command exit code ${code}`);
 
-  const parsed = parseRemoteOutput(stdout, config, collectedAt);
+  const parsed = parseCollectorOutput(stdout, config, collectedAt);
   const snapshot: Snapshot = {
     collectedAt,
     mode: "ssh",
@@ -80,7 +80,7 @@ export const collectSshSnapshot = async (config: AppConfig): Promise<Snapshot> =
   return snapshot;
 };
 
-const parseRemoteOutput = (stdout: string, config: AppConfig, collectedAt: string) => {
+export const parseCollectorOutput = (stdout: string, config: AppConfig, collectedAt: string) => {
   const jobs: JobRun[] = [];
   const workers: WorkerState[] = [];
   const logs: LogHeartbeat[] = [];

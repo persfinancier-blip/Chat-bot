@@ -1,5 +1,6 @@
 import type { AppConfig, LogHeartbeat, Snapshot } from "../types/models.js";
 import { hasSshConfig, redact } from "../config.js";
+import { collectLocalSnapshot } from "../collectors/localCollector.js";
 import { collectMockSnapshot } from "../collectors/mockCollector.js";
 import { collectSshSnapshot } from "../collectors/sshCollector.js";
 import type { DashboardDb } from "../db/database.js";
@@ -44,16 +45,32 @@ export class MonitoringService {
   }
 
   private async collect(): Promise<Snapshot> {
-    if (!hasSshConfig(this.config)) {
-      return collectMockSnapshot(this.config, "SSH config missing; running seed/mock mode");
+    if (this.config.collectorMode === "mock") {
+      return collectMockSnapshot(this.config, "COLLECTOR_MODE=mock");
     }
 
-    try {
-      return await collectSshSnapshot(this.config);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return collectMockSnapshot(this.config, `SSH collector failed: ${redact(message)}`);
+    if (this.config.collectorMode === "ssh" || (this.config.collectorMode === "auto" && hasSshConfig(this.config))) {
+      if (!hasSshConfig(this.config)) {
+        return collectMockSnapshot(this.config, "SSH config missing; running seed/mock mode");
+      }
+      try {
+        return await collectSshSnapshot(this.config);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return collectMockSnapshot(this.config, `SSH collector failed: ${redact(message)}`);
+      }
     }
+
+    if (this.config.collectorMode === "local" || this.config.appEnv === "prod") {
+      try {
+        return await collectLocalSnapshot(this.config);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return collectMockSnapshot(this.config, `Local collector failed: ${redact(message)}`);
+      }
+    }
+
+    return collectMockSnapshot(this.config, "SSH config missing; running seed/mock mode");
   }
 
   private enrichLogRates(logs: LogHeartbeat[]): void {

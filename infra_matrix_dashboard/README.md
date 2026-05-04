@@ -1,6 +1,6 @@
 # Infra Matrix Dashboard
 
-MVP monitoring dashboard for the `silver_bullet` pipeline server. The app is read-only: it collects cron/systemd/log/host telemetry through SSH, stores snapshots in SQLite, exposes Fastify API endpoints, and renders a React Matrix-style NOC dashboard.
+MVP monitoring dashboard for the `silver_bullet` pipeline server. The app is read-only: it collects cron/systemd/log/host telemetry through SSH or local read-only commands, stores snapshots in SQLite, exposes Fastify API endpoints, and renders a React Matrix-style NOC dashboard.
 
 ## Architecture Choice
 
@@ -16,14 +16,19 @@ Storage: **SQLite MVP through `sql.js`** in `./data/infra_matrix.sqlite`. The sc
 
 ```text
 Fastify collector loop
-  -> SSH read-only commands
+  -> SSH or local read-only commands
   -> cron/systemd/log/host parsers
   -> SQLite tables
   -> /api/* endpoints
   -> React dashboards polling every 30 sec
 ```
 
-If SSH is unavailable or not configured, the app runs in seed/mock mode so the UI remains demonstrable.
+Collector modes:
+
+- `COLLECTOR_MODE=auto`: SSH when credentials are configured; local collector in `APP_ENV=prod`; mock otherwise.
+- `COLLECTOR_MODE=ssh`: force SSH collector.
+- `COLLECTOR_MODE=local`: force local read-only collector on the host where the app runs.
+- `COLLECTOR_MODE=mock`: force seed/mock data for UI demos.
 
 ## Tables
 
@@ -50,6 +55,7 @@ Minimum local mock mode:
 
 ```text
 APP_ENV=dev
+COLLECTOR_MODE=auto
 POLL_INTERVAL_SEC=30
 LOG_STALE_THRESHOLD_MIN=10
 JOB_STUCK_THRESHOLD_MIN=180
@@ -111,7 +117,7 @@ Production start after copying the project:
 ```bash
 cd /home/sourcecraft/infra_matrix_dashboard
 npm ci --omit=dev
-APP_ENV=prod API_HOST=0.0.0.0 API_PORT=8787 npm start
+APP_ENV=prod COLLECTOR_MODE=local API_HOST=0.0.0.0 API_PORT=8791 npm start
 ```
 
 Run with pm2:
@@ -122,7 +128,9 @@ pm2 start npm --name infra-matrix-dashboard -- start
 pm2 save
 ```
 
-If SSH credentials are not configured in `.env`, the app starts in mock mode. This is intentional for safe demo deploys; fill `SSH_HOST`, `SSH_USER` and either `SSH_PASSWORD` or `SSH_KEY_PATH` to collect real server telemetry.
+If the dashboard runs on the monitored server, use `COLLECTOR_MODE=local` to avoid SSH secrets. If it runs from another host, fill `SSH_HOST`, `SSH_USER` and either `SSH_PASSWORD` or `SSH_KEY_PATH`, then use `COLLECTOR_MODE=ssh`.
+
+On the current server, port `8787` is already used by AI Orchestrator, so Infra Matrix is expected to run on `8791` unless nginx is updated to proxy it.
 
 ## Dashboards
 
@@ -204,7 +212,7 @@ Levels:
 
 ## Known Limitations
 
-- SSH collector is read-only and depends on the SSH user permissions.
+- SSH collector is read-only and depends on the SSH user permissions; local collector depends on Linux command availability and filesystem permissions.
 - If `/projects/silver_bullet/logs` is not readable, logs show as collector alerts or mock data.
 - The app does not yet parse exact DB table lineage. It is prepared for future table-level data quality dashboards.
 - No authentication is included in MVP; run behind localhost/VPN/reverse proxy auth for production.

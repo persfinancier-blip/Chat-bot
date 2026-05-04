@@ -4,6 +4,7 @@ export type AlertLevel = "info" | "warn" | "crit";
 
 export interface AppConfig {
   appEnv: "dev" | "prod";
+  collectorMode: "auto" | "mock" | "ssh" | "local";
   apiHost: string;
   apiPort: number;
   frontendOrigin: string;
@@ -91,7 +92,7 @@ export interface AlertItem {
 
 export interface Snapshot {
   collectedAt: string;
-  mode: "ssh" | "mock";
+  mode: "ssh" | "mock" | "local";
   jobs: JobRun[];
   workers: WorkerState[];
   logs: LogHeartbeat[];

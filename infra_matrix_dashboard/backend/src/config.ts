@@ -16,6 +16,7 @@ export const loadConfig = (): AppConfig => {
   const keyPath = process.env.SSH_KEY_PATH || undefined;
   return {
     appEnv: process.env.APP_ENV === "prod" ? "prod" : "dev",
+    collectorMode: parseCollectorMode(process.env.COLLECTOR_MODE),
     apiHost: process.env.API_HOST || "127.0.0.1",
     apiPort: numberEnv("API_PORT", 8787),
     frontendOrigin: process.env.FRONTEND_ORIGIN || "http://127.0.0.1:5173",
@@ -32,6 +33,11 @@ export const loadConfig = (): AppConfig => {
       keyPath: keyPath && fs.existsSync(keyPath) ? keyPath : keyPath
     }
   };
+};
+
+const parseCollectorMode = (raw?: string): AppConfig["collectorMode"] => {
+  if (raw === "mock" || raw === "ssh" || raw === "local") return raw;
+  return "auto";
 };
 
 export const hasSshConfig = (config: AppConfig): boolean => {
