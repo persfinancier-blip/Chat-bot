@@ -98,27 +98,30 @@ export interface Overview {
 
 export const api = {
   async health(): Promise<HealthResponse> {
-    return getJson("/api/health");
+    return getJson(apiPath("/health"));
   },
   async overview(): Promise<Overview> {
-    return getJson("/api/overview");
+    return getJson(apiPath("/overview"));
   },
   async jobs(): Promise<JobRun[]> {
-    return (await getJson<{ jobs: JobRun[] }>("/api/jobs")).jobs;
+    return (await getJson<{ jobs: JobRun[] }>(apiPath("/jobs"))).jobs;
   },
   async logs(): Promise<LogHeartbeat[]> {
-    return (await getJson<{ logs: LogHeartbeat[] }>("/api/logs")).logs;
+    return (await getJson<{ logs: LogHeartbeat[] }>(apiPath("/logs"))).logs;
   },
   async workers(): Promise<WorkerState[]> {
-    return (await getJson<{ workers: WorkerState[] }>("/api/workers")).workers;
+    return (await getJson<{ workers: WorkerState[] }>(apiPath("/workers"))).workers;
   },
   async metrics(): Promise<HostMetrics[]> {
-    return (await getJson<{ metrics: HostMetrics[] }>("/api/metrics?limit=120")).metrics;
+    return (await getJson<{ metrics: HostMetrics[] }>(apiPath("/metrics?limit=120"))).metrics;
   },
   async collect(): Promise<void> {
-    await fetch("/api/collect", { method: "POST" });
+    await fetch(apiPath("/collect"), { method: "POST" });
   }
 };
+
+const basePath = import.meta.env.BASE_URL && import.meta.env.BASE_URL !== "/" ? import.meta.env.BASE_URL.replace(/\/$/, "") : "";
+const apiPath = (path: string): string => `${basePath}/api${path}`;
 
 const getJson = async <T>(path: string): Promise<T> => {
   const response = await fetch(path);
