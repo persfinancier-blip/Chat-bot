@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, Cpu, Database, FileWarning, Server } from "lucide-react";
+import { Activity, Cpu, FileWarning, Server, ShieldCheck } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { Overview } from "../lib/api";
 import { fmtPct, fmtTime } from "../lib/utils";
@@ -16,7 +16,7 @@ export const GlobalControlPanel = ({ overview }: { overview?: Overview }) => {
         <Card>
           <CardHeader>
             <CardTitle>Global Health Core</CardTitle>
-            <Badge tone={overview?.collectorMode === "ssh" ? "ok" : "warn"}>{overview?.collectorMode ?? "booting"}</Badge>
+            <Badge tone={overview?.collectorMode === "ssh" ? "ok" : overview?.collectorMode === "mock" ? "warn" : "info"}>{overview?.collectorMode ?? "booting"}</Badge>
           </CardHeader>
           <div className="grid grid-cols-[180px_1fr] items-center gap-5">
             <div className="h-44">
@@ -66,16 +66,16 @@ export const GlobalControlPanel = ({ overview }: { overview?: Overview }) => {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Telemetry Contract</CardTitle>
-          <Database className="h-4 w-4 text-matrix-cyan" />
-        </CardHeader>
-        <div className="grid gap-3 text-sm text-white/60 md:grid-cols-4">
-          <div>polling: 15-60 sec configurable</div>
-          <div>storage: SQLite MVP</div>
-          <div>alerts: jobs/logs/services/host</div>
-          <div>mode: read-only SSH collector</div>
-        </div>
+          <CardHeader>
+            <CardTitle>Telemetry Contract</CardTitle>
+          <ShieldCheck className="h-4 w-4 text-matrix-cyan" />
+          </CardHeader>
+          <div className="grid gap-3 text-sm text-white/60 md:grid-cols-4">
+            <div>polling: 15-60 sec configurable</div>
+          <div>storage: in-memory live ring buffer</div>
+            <div>alerts: jobs/logs/services/host</div>
+          <div>mode: read-only collector</div>
+          </div>
       </Card>
     </div>
   );

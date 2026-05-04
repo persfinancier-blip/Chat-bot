@@ -12,7 +12,6 @@ export interface AppConfig {
   logStaleThresholdMin: number;
   jobStuckThresholdMin: number;
   logsPath: string;
-  sqlitePath: string;
   ssh: {
     host?: string;
     port: number;
@@ -99,4 +98,14 @@ export interface Snapshot {
   metrics: HostMetrics;
   alerts: AlertItem[];
   collectorErrors: string[];
+}
+
+export interface HealthResponse {
+  ok: boolean;
+  collector: "ssh" | "mock" | "local" | "booting";
+  connectionOk: boolean;
+  degraded: boolean;
+  reason?: string;
+  lastSyncAt?: string;
+  healthScore: number;
 }

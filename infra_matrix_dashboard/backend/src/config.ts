@@ -24,7 +24,6 @@ export const loadConfig = (): AppConfig => {
     logStaleThresholdMin: numberEnv("LOG_STALE_THRESHOLD_MIN", 10),
     jobStuckThresholdMin: numberEnv("JOB_STUCK_THRESHOLD_MIN", 180),
     logsPath: process.env.LOGS_PATH || "/projects/silver_bullet/logs",
-    sqlitePath: process.env.SQLITE_PATH || "./data/infra_matrix.sqlite",
     ssh: {
       host: process.env.SSH_HOST || undefined,
       port: numberEnv("SSH_PORT", 22),

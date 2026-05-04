@@ -65,9 +65,23 @@ export interface AlertItem {
   active: boolean;
 }
 
+export interface HealthResponse {
+  ok: boolean;
+  collector: "ssh" | "mock" | "local" | "booting";
+  connectionOk: boolean;
+  degraded: boolean;
+  reason?: string;
+  lastSyncAt?: string;
+  healthScore: number;
+}
+
 export interface Overview {
   collectedAt?: string;
-  collectorMode?: "ssh" | "mock";
+  collectorMode?: "ssh" | "mock" | "local";
+  connectionOk?: boolean;
+  degraded?: boolean;
+  reason?: string;
+  lastSyncAt?: string;
   healthScore: number;
   kpis: {
     jobsTotal: number;
@@ -83,6 +97,9 @@ export interface Overview {
 }
 
 export const api = {
+  async health(): Promise<HealthResponse> {
+    return getJson("/api/health");
+  },
   async overview(): Promise<Overview> {
     return getJson("/api/overview");
   },

@@ -1,22 +1,15 @@
 import type { FastifyInstance } from "fastify";
-import type { DashboardDb } from "../db/database.js";
 import type { MonitoringService } from "../services/monitoringService.js";
 import { computeHealthScore } from "../services/alerts.js";
 
 export const registerApiRoutes = async (
   app: FastifyInstance,
-  deps: { db: DashboardDb; monitor: MonitoringService }
+  deps: { monitor: MonitoringService }
 ) => {
-  const { db, monitor } = deps;
+  const { monitor } = deps;
 
   app.get("/api/health", async () => {
-    const alerts = db.activeAlerts();
-    return {
-      ok: true,
-      healthScore: computeHealthScore(alerts),
-      collector: monitor.latest()?.mode ?? "booting",
-      collectedAt: monitor.latest()?.collectedAt
-    };
+    return monitor.health();
   });
 
   app.post("/api/collect", async () => {
@@ -25,14 +18,20 @@ export const registerApiRoutes = async (
   });
 
   app.get("/api/overview", async () => {
-    const jobs = db.latestJobs();
-    const workers = db.latestWorkers();
-    const logs = db.latestLogs();
-    const alerts = db.activeAlerts();
-    const metrics = db.metricsHistory(1).at(-1);
+    const snapshot = monitor.latest();
+    const jobs = snapshot?.jobs ?? [];
+    const workers = snapshot?.workers ?? [];
+    const logs = snapshot?.logs ?? [];
+    const alerts = snapshot?.alerts ?? [];
+    const metrics = snapshot?.metrics;
+    const health = monitor.health();
     return {
-      collectedAt: monitor.latest()?.collectedAt,
-      collectorMode: monitor.latest()?.mode,
+      collectedAt: snapshot?.collectedAt,
+      collectorMode: snapshot?.mode,
+      connectionOk: health.connectionOk,
+      degraded: health.degraded,
+      reason: health.reason,
+      lastSyncAt: health.lastSyncAt,
       healthScore: computeHealthScore(alerts),
       kpis: {
         jobsTotal: jobs.length,
@@ -48,12 +47,12 @@ export const registerApiRoutes = async (
     };
   });
 
-  app.get("/api/jobs", async () => ({ jobs: db.latestJobs() }));
-  app.get("/api/workers", async () => ({ workers: db.latestWorkers() }));
-  app.get("/api/logs", async () => ({ logs: db.latestLogs() }));
-  app.get("/api/alerts", async () => ({ alerts: db.activeAlerts() }));
+  app.get("/api/jobs", async () => ({ jobs: monitor.latest()?.jobs ?? [] }));
+  app.get("/api/workers", async () => ({ workers: monitor.latest()?.workers ?? [] }));
+  app.get("/api/logs", async () => ({ logs: monitor.latest()?.logs ?? [] }));
+  app.get("/api/alerts", async () => ({ alerts: monitor.latest()?.alerts ?? [] }));
   app.get("/api/metrics", async (request) => {
     const limit = Number((request.query as { limit?: string }).limit || 120);
-    return { metrics: db.metricsHistory(Math.min(Math.max(limit, 1), 500)) };
+    return { metrics: monitor.metricsHistory(Math.min(Math.max(limit, 1), 500)) };
   });
 };

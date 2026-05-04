@@ -1,6 +1,6 @@
 # Infra Matrix Dashboard
 
-MVP monitoring dashboard for the `silver_bullet` pipeline server. The app is read-only: it collects cron/systemd/log/host telemetry through SSH or local read-only commands, stores snapshots in SQLite, exposes Fastify API endpoints, and renders a React Matrix-style NOC dashboard.
+MVP monitoring dashboard for the `silver_bullet` pipeline server. The app is read-only: it collects cron/systemd/log/host telemetry through SSH or local read-only commands, keeps live snapshots in memory, exposes Fastify API endpoints, and renders a React Matrix-style NOC dashboard.
 
 ## Architecture Choice
 
@@ -10,7 +10,7 @@ Reason: this MVP ships as one npm workspace with the React/Vite frontend, runs e
 
 Frontend: **React + TypeScript + Tailwind + shadcn-like local UI components + Recharts**.
 
-Storage: **SQLite MVP through `sql.js`** in `./data/infra_matrix.sqlite`. The schema is intentionally close to the future PostgreSQL shape.
+Storage: **in-memory live store**. The backend keeps the current snapshot plus bounded ring buffers for recent metrics and entity history. No database is required for this infrastructure-only MVP.
 
 ## Data Flow
 
@@ -18,7 +18,7 @@ Storage: **SQLite MVP through `sql.js`** in `./data/infra_matrix.sqlite`. The sc
 Fastify collector loop
   -> SSH or local read-only commands
   -> cron/systemd/log/host parsers
-  -> SQLite tables
+  -> in-memory live store
   -> /api/* endpoints
   -> React dashboards polling every 30 sec
 ```
@@ -128,7 +128,7 @@ pm2 start npm --name infra-matrix-dashboard -- start
 pm2 save
 ```
 
-If the dashboard runs on the monitored server, use `COLLECTOR_MODE=local` to avoid SSH secrets. If it runs from another host, fill `SSH_HOST`, `SSH_USER` and either `SSH_PASSWORD` or `SSH_KEY_PATH`, then use `COLLECTOR_MODE=ssh`.
+If the dashboard runs on the monitored server and an existing loopback key is available, prefer `COLLECTOR_MODE=ssh` with `SSH_HOST=127.0.0.1`; this keeps the deployed mode identical to remote monitoring without adding new secrets. If no SSH secret is available, use `COLLECTOR_MODE=local` or leave `auto` and the app will degrade to mock mode with the reason visible in `/api/health`.
 
 On the current server, port `8787` is already used by AI Orchestrator, so Infra Matrix is expected to run on `8791` unless nginx is updated to proxy it.
 
@@ -216,7 +216,7 @@ Levels:
 - If `/projects/silver_bullet/logs` is not readable, logs show as collector alerts or mock data.
 - The app does not yet parse exact DB table lineage. It is prepared for future table-level data quality dashboards.
 - No authentication is included in MVP; run behind localhost/VPN/reverse proxy auth for production.
-- SQLite is for MVP. Move to PostgreSQL when multiple operators or long retention are required.
+- The live store is in memory. Restarting the process clears history; move to PostgreSQL only when long retention is required.
 
 ## Future Data Quality Extension
 

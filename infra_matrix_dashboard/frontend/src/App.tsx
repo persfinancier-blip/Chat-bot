@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Activity, FileText, LayoutDashboard, RefreshCcw, ServerCog } from "lucide-react";
-import { api, type HostMetrics, type JobRun, type LogHeartbeat, type Overview, type WorkerState } from "./lib/api";
+import { api, type HealthResponse, type HostMetrics, type JobRun, type LogHeartbeat, type Overview, type WorkerState } from "./lib/api";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
 import { GlobalControlPanel } from "./views/GlobalControlPanel";
@@ -21,6 +21,7 @@ const views: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = 
 export default function App() {
   const [view, setView] = useState<View>("control");
   const [overview, setOverview] = useState<Overview>();
+  const [health, setHealth] = useState<HealthResponse>();
   const [jobs, setJobs] = useState<JobRun[]>([]);
   const [logs, setLogs] = useState<LogHeartbeat[]>([]);
   const [workers, setWorkers] = useState<WorkerState[]>([]);
@@ -31,13 +32,15 @@ export default function App() {
   const load = async () => {
     try {
       setError(undefined);
-      const [nextOverview, nextJobs, nextLogs, nextWorkers, nextMetrics] = await Promise.all([
+      const [nextHealth, nextOverview, nextJobs, nextLogs, nextWorkers, nextMetrics] = await Promise.all([
+        api.health(),
         api.overview(),
         api.jobs(),
         api.logs(),
         api.workers(),
         api.metrics()
       ]);
+      setHealth(nextHealth);
       setOverview(nextOverview);
       setJobs(nextJobs);
       setLogs(nextLogs);
@@ -78,10 +81,11 @@ export default function App() {
           <div>
             <div className="font-mono text-xs uppercase tracking-[0.35em] text-matrix-cyan">Silver Bullet Observability</div>
             <h1 className="mt-2 text-3xl font-semibold text-white md:text-5xl">Infra Matrix Dashboard</h1>
-            <div className="mt-2 text-sm text-white/55">{headline} · last pulse {fmtTime(overview?.collectedAt)}</div>
+            <div className="mt-2 text-sm text-white/55">{headline} / last sync {fmtTime(health?.lastSyncAt ?? overview?.lastSyncAt ?? overview?.collectedAt)}</div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={overview?.collectorMode === "ssh" ? "ok" : "warn"}>{overview?.collectorMode ?? "booting"}</Badge>
+            <Badge tone={health?.collector === "ssh" ? "ok" : health?.collector === "mock" ? "warn" : "info"}>{health?.collector ?? overview?.collectorMode ?? "booting"}</Badge>
+            <Badge tone={health?.connectionOk ? "ok" : "crit"}>{health?.connectionOk ? "connection ok" : "connection degraded"}</Badge>
             <Badge tone={(overview?.healthScore ?? 0) >= 80 ? "ok" : (overview?.healthScore ?? 0) >= 60 ? "warn" : "crit"}>health {overview?.healthScore ?? "..."}</Badge>
             <Button onClick={manualCollect} disabled={refreshing}>
               <RefreshCcw className="mr-2 inline h-3.5 w-3.5" />
@@ -91,6 +95,11 @@ export default function App() {
         </header>
 
         {error ? <div className="mb-4 rounded border border-matrix-red/50 bg-matrix-red/10 p-3 text-sm text-matrix-red">API error: {error}</div> : null}
+        {health?.degraded ? (
+          <div className="mb-4 rounded border border-matrix-red/50 bg-matrix-red/10 p-3 text-sm text-matrix-red">
+            Collector degraded: {health.reason ?? "unknown reason"}
+          </div>
+        ) : null}
 
         <nav className="mb-5 grid gap-2 md:grid-cols-4">
           {views.map((item) => {

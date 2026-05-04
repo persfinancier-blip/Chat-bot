@@ -4,9 +4,9 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import { loadConfig } from "./config.js";
-import { DashboardDb } from "./db/database.js";
 import { MonitoringService } from "./services/monitoringService.js";
 import { registerApiRoutes } from "./routes/api.js";
+import { InMemoryStore } from "./services/memoryStore.js";
 
 const config = loadConfig();
 const app = Fastify({
@@ -21,9 +21,9 @@ await app.register(cors, {
   credentials: false
 });
 
-const db = await DashboardDb.open(config.sqlitePath);
-const monitor = new MonitoringService(config, db);
-await registerApiRoutes(app, { db, monitor });
+const store = new InMemoryStore();
+const monitor = new MonitoringService(config, store);
+await registerApiRoutes(app, { monitor });
 
 const frontendDist = path.resolve(process.cwd(), "frontend", "dist");
 if (fs.existsSync(path.join(frontendDist, "index.html"))) {

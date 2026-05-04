@@ -1,9 +1,10 @@
-import type { AppConfig, LogHeartbeat, Snapshot } from "../types/models.js";
+import type { AppConfig, HealthResponse, LogHeartbeat, Snapshot } from "../types/models.js";
 import { hasSshConfig, redact } from "../config.js";
 import { collectLocalSnapshot } from "../collectors/localCollector.js";
 import { collectMockSnapshot } from "../collectors/mockCollector.js";
 import { collectSshSnapshot } from "../collectors/sshCollector.js";
-import type { DashboardDb } from "../db/database.js";
+import type { InMemoryStore } from "./memoryStore.js";
+import { computeHealthScore } from "./alerts.js";
 
 export class MonitoringService {
   private timer?: NodeJS.Timeout;
@@ -12,7 +13,7 @@ export class MonitoringService {
 
   constructor(
     private readonly config: AppConfig,
-    private readonly db: DashboardDb
+    private readonly store: InMemoryStore
   ) {}
 
   start(): void {
@@ -25,7 +26,37 @@ export class MonitoringService {
   }
 
   latest(): Snapshot | undefined {
-    return this.lastSnapshot;
+    return this.store.latestSnapshot() ?? this.lastSnapshot;
+  }
+
+  metricsHistory(limit = 120) {
+    return this.store.metricsHistory(limit);
+  }
+
+  health(): HealthResponse {
+    const latest = this.latest();
+    if (!latest) {
+      return {
+        ok: false,
+        collector: "booting",
+        connectionOk: false,
+        degraded: true,
+        reason: "collector booting",
+        healthScore: 0
+      };
+    }
+
+    const reason = latest.collectorErrors.length ? latest.collectorErrors.join("; ") : undefined;
+    const degraded = latest.mode === "mock" || latest.collectorErrors.length > 0;
+    return {
+      ok: !degraded,
+      collector: latest.mode,
+      connectionOk: latest.mode === "ssh" || latest.mode === "local",
+      degraded,
+      reason,
+      lastSyncAt: latest.collectedAt,
+      healthScore: computeHealthScore(latest.alerts)
+    };
   }
 
   async collectOnce(): Promise<Snapshot> {
@@ -36,7 +67,7 @@ export class MonitoringService {
     try {
       const snapshot = await this.collect();
       this.enrichLogRates(snapshot.logs);
-      this.db.saveSnapshot(snapshot);
+      this.store.saveSnapshot(snapshot);
       this.lastSnapshot = snapshot;
       return snapshot;
     } finally {
@@ -61,7 +92,7 @@ export class MonitoringService {
       }
     }
 
-    if (this.config.collectorMode === "local" || this.config.appEnv === "prod") {
+    if (this.config.collectorMode === "local") {
       try {
         return await collectLocalSnapshot(this.config);
       } catch (error) {
@@ -74,7 +105,7 @@ export class MonitoringService {
   }
 
   private enrichLogRates(logs: LogHeartbeat[]): void {
-    const previous = new Map(this.db.latestLogs().map((log) => [log.path, log]));
+    const previous = new Map(this.store.latestLogs().map((log) => [log.path, log]));
     for (const log of logs) {
       const prev = previous.get(log.path);
       if (!prev) continue;
