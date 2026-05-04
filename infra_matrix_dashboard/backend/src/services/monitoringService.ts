@@ -1,0 +1,69 @@
+import type { AppConfig, LogHeartbeat, Snapshot } from "../types/models.js";
+import { hasSshConfig, redact } from "../config.js";
+import { collectMockSnapshot } from "../collectors/mockCollector.js";
+import { collectSshSnapshot } from "../collectors/sshCollector.js";
+import type { DashboardDb } from "../db/database.js";
+
+export class MonitoringService {
+  private timer?: NodeJS.Timeout;
+  private lastSnapshot?: Snapshot;
+  private collecting = false;
+
+  constructor(
+    private readonly config: AppConfig,
+    private readonly db: DashboardDb
+  ) {}
+
+  start(): void {
+    void this.collectOnce();
+    this.timer = setInterval(() => void this.collectOnce(), this.config.pollIntervalSec * 1000);
+  }
+
+  stop(): void {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  latest(): Snapshot | undefined {
+    return this.lastSnapshot;
+  }
+
+  async collectOnce(): Promise<Snapshot> {
+    if (this.collecting) {
+      return this.lastSnapshot ?? collectMockSnapshot(this.config, "collector already running");
+    }
+    this.collecting = true;
+    try {
+      const snapshot = await this.collect();
+      this.enrichLogRates(snapshot.logs);
+      this.db.saveSnapshot(snapshot);
+      this.lastSnapshot = snapshot;
+      return snapshot;
+    } finally {
+      this.collecting = false;
+    }
+  }
+
+  private async collect(): Promise<Snapshot> {
+    if (!hasSshConfig(this.config)) {
+      return collectMockSnapshot(this.config, "SSH config missing; running seed/mock mode");
+    }
+
+    try {
+      return await collectSshSnapshot(this.config);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return collectMockSnapshot(this.config, `SSH collector failed: ${redact(message)}`);
+    }
+  }
+
+  private enrichLogRates(logs: LogHeartbeat[]): void {
+    const previous = new Map(this.db.latestLogs().map((log) => [log.path, log]));
+    for (const log of logs) {
+      const prev = previous.get(log.path);
+      if (!prev) continue;
+      const elapsedMin = (Date.parse(log.updatedAt) - Date.parse(prev.updatedAt)) / 60_000;
+      if (elapsedMin <= 0) continue;
+      log.linesPerMin = Math.max(0, Math.round(((log.totalLines - prev.totalLines) / elapsedMin) * 10) / 10);
+    }
+  }
+}
