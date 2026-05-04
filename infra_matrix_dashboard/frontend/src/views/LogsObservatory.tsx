@@ -10,18 +10,18 @@ export const LogsObservatory = ({ logs }: { logs: LogHeartbeat[] }) => {
     <div className="grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
       <Card>
         <CardHeader>
-          <CardTitle>Log Heartbeat</CardTitle>
-          <Badge tone="info">{logs.length} files</Badge>
+          <CardTitle>Состояние логов</CardTitle>
+          <Badge tone="info">{logs.length} файлов</Badge>
         </CardHeader>
         <div className="overflow-auto">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="font-mono text-xs uppercase text-white/45">
               <tr>
-                <th className="p-2">file</th>
-                <th className="p-2">last write</th>
-                <th className="p-2">lines/min</th>
-                <th className="p-2">errors</th>
-                <th className="p-2">heartbeat</th>
+                <th className="p-2">файл</th>
+                <th className="p-2">последняя запись</th>
+                <th className="p-2">строк/мин</th>
+                <th className="p-2">ошибки</th>
+                <th className="p-2">состояние</th>
               </tr>
             </thead>
             <tbody>
@@ -31,7 +31,7 @@ export const LogsObservatory = ({ logs }: { logs: LogHeartbeat[] }) => {
                   <td className="p-2 text-white/65">{fmtTime(log.lastWriteAt)}</td>
                   <td className="p-2 text-white/65">{log.linesPerMin}</td>
                   <td className="p-2"><Badge tone={log.errorCount ? "warn" : "ok"}>{log.errorCount}</Badge></td>
-                  <td className="p-2"><Badge tone={log.stale ? "crit" : "ok"}>{log.stale ? "stale" : "alive"}</Badge></td>
+                  <td className="p-2"><Badge tone={log.stale ? "crit" : "ok"}>{log.stale ? "не обновляется" : "активен"}</Badge></td>
                 </tr>
               ))}
             </tbody>
@@ -41,7 +41,7 @@ export const LogsObservatory = ({ logs }: { logs: LogHeartbeat[] }) => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Error Stream</CardTitle>
+          <CardTitle>Поток ошибок</CardTitle>
           <AlertTriangle className="h-4 w-4 text-matrix-amber" />
         </CardHeader>
         <div className="grid max-h-[520px] gap-2 overflow-auto pr-1">
@@ -51,7 +51,7 @@ export const LogsObservatory = ({ logs }: { logs: LogHeartbeat[] }) => {
               <div className="mt-1 text-xs text-white/65">{item.error}</div>
             </div>
           ))}
-          {errors.length === 0 ? <div className="text-sm text-white/50">No error signatures in latest tails.</div> : null}
+          {errors.length === 0 ? <div className="text-sm text-white/50">В последних строках логов сигнатур ошибок нет.</div> : null}
         </div>
       </Card>
     </div>

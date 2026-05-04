@@ -12,10 +12,10 @@ import { cn, fmtTime } from "./lib/utils";
 type View = "control" | "jobs" | "logs" | "workers";
 
 const views: Array<{ id: View; label: string; icon: typeof LayoutDashboard }> = [
-  { id: "control", label: "Global Control", icon: LayoutDashboard },
-  { id: "jobs", label: "Jobs Matrix", icon: Activity },
-  { id: "logs", label: "Logs Observatory", icon: FileText },
-  { id: "workers", label: "Workers & Host", icon: ServerCog }
+  { id: "control", label: "Общий контроль", icon: LayoutDashboard },
+  { id: "jobs", label: "Матрица задач", icon: Activity },
+  { id: "logs", label: "Логи", icon: FileText },
+  { id: "workers", label: "Воркеры и сервер", icon: ServerCog }
 ];
 
 export default function App() {
@@ -59,9 +59,9 @@ export default function App() {
 
   const headline = useMemo(() => {
     const score = overview?.healthScore ?? 0;
-    if (score >= 90) return "nominal telemetry field";
-    if (score >= 70) return "degraded but operational";
-    return "critical anomalies detected";
+    if (score >= 90) return "мониторинг работает штатно";
+    if (score >= 70) return "есть отклонения, система работает";
+    return "обнаружены критические аномалии";
   }, [overview?.healthScore]);
 
   const manualCollect = async () => {
@@ -79,25 +79,25 @@ export default function App() {
       <div className="mx-auto max-w-[1500px]">
         <header className="mb-5 flex flex-col gap-4 border-b border-matrix-line pb-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="font-mono text-xs uppercase tracking-[0.35em] text-matrix-cyan">Silver Bullet Observability</div>
-            <h1 className="mt-2 text-3xl font-semibold text-white md:text-5xl">Infra Matrix Dashboard</h1>
-            <div className="mt-2 text-sm text-white/55">{headline} / last sync {fmtTime(health?.lastSyncAt ?? overview?.lastSyncAt ?? overview?.collectedAt)}</div>
+            <div className="font-mono text-xs uppercase tracking-[0.35em] text-matrix-cyan">Silver Bullet Мониторинг</div>
+            <h1 className="mt-2 text-3xl font-semibold text-white md:text-5xl">Инфра-матрица</h1>
+            <div className="mt-2 text-sm text-white/55">{headline} / последнее обновление {fmtTime(health?.lastSyncAt ?? overview?.lastSyncAt ?? overview?.collectedAt)}</div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={health?.collector === "ssh" ? "ok" : health?.collector === "mock" ? "warn" : "info"}>{health?.collector ?? overview?.collectorMode ?? "booting"}</Badge>
-            <Badge tone={health?.connectionOk ? "ok" : "crit"}>{health?.connectionOk ? "connection ok" : "connection degraded"}</Badge>
-            <Badge tone={(overview?.healthScore ?? 0) >= 80 ? "ok" : (overview?.healthScore ?? 0) >= 60 ? "warn" : "crit"}>health {overview?.healthScore ?? "..."}</Badge>
+            <Badge tone={health?.connectionOk ? "ok" : "crit"}>{health?.connectionOk ? "связь ok" : "связь нарушена"}</Badge>
+            <Badge tone={(overview?.healthScore ?? 0) >= 80 ? "ok" : (overview?.healthScore ?? 0) >= 60 ? "warn" : "crit"}>состояние {overview?.healthScore ?? "..."}</Badge>
             <Button onClick={manualCollect} disabled={refreshing}>
               <RefreshCcw className="mr-2 inline h-3.5 w-3.5" />
-              refresh
+              обновить
             </Button>
           </div>
         </header>
 
-        {error ? <div className="mb-4 rounded border border-matrix-red/50 bg-matrix-red/10 p-3 text-sm text-matrix-red">API error: {error}</div> : null}
+        {error ? <div className="mb-4 rounded border border-matrix-red/50 bg-matrix-red/10 p-3 text-sm text-matrix-red">Ошибка API: {error}</div> : null}
         {health?.degraded ? (
           <div className="mb-4 rounded border border-matrix-red/50 bg-matrix-red/10 p-3 text-sm text-matrix-red">
-            Collector degraded: {health.reason ?? "unknown reason"}
+            Сборщик в деградации: {health.reason ?? "причина неизвестна"}
           </div>
         ) : null}
 
