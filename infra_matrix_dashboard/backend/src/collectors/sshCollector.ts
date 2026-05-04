@@ -3,7 +3,7 @@ import { buildAlerts } from "../services/alerts.js";
 import { SshClient } from "./sshClient.js";
 
 export const buildCollectorScript = (logsPath: string) => `
-set -euo pipefail
+set -uo pipefail
 LOGS_PATH=${shellQuote(logsPath)}
 now_iso=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 echo "SECTION\\tJOBS"
